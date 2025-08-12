@@ -2,170 +2,155 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Local Trading Journal</title>
+<title>Trading Journal</title>
 <style>
     body {
+        background-color: #111;
+        color: white;
         font-family: Arial, sans-serif;
-        background-color: #121212;
-        color: #f0f0f0;
         margin: 0;
-        padding: 0;
-    }
-    .container {
-        max-width: 1000px;
-        margin: auto;
         padding: 20px;
     }
-    h1, h2 {
-        text-align: center;
-        color: #00ffae;
+    h1 { text-align: center; }
+    .form-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 15px;
     }
-    input, select, button {
+    .form-container input,
+    .form-container select,
+    .form-container button {
         padding: 8px;
-        margin: 5px;
-        border-radius: 5px;
+        border-radius: 4px;
         border: none;
     }
-    input, select {
-        width: 150px;
+    .form-container input,
+    .form-container select {
+        flex: 1;
+        min-width: 120px;
     }
-    button {
-        background: #00ffae;
-        color: black;
+    .form-container button {
+        background-color: #28a745;
+        color: white;
         cursor: pointer;
-        font-weight: bold;
+    }
+    .form-container button:hover {
+        background-color: #218838;
     }
     table {
         width: 100%;
         border-collapse: collapse;
-        margin-top: 15px;
+        background-color: #222;
     }
     th, td {
-        padding: 10px;
         border: 1px solid #444;
+        padding: 8px;
         text-align: center;
     }
     th {
-        background: #00ffae;
-        color: black;
+        background-color: #333;
     }
-    .profit { color: #00ffae; }
-    .loss { color: #ff4d4d; }
-    .totals {
-        margin-top: 20px;
-        font-size: 1.2em;
-        text-align: right;
-    }
-    .login {
-        max-width: 300px;
-        margin: 100px auto;
-        background: #1e1e1e;
-        padding: 20px;
-        border-radius: 10px;
-        text-align: center;
+    .profit { color: #0f0; }
+    .loss { color: #f00; }
+    @media (max-width: 768px) {
+        table, thead, tbody, th, td, tr {
+            display: block;
+        }
+        thead tr {
+            display: none;
+        }
+        td {
+            text-align: right;
+            padding-left: 50%;
+            position: relative;
+        }
+        td::before {
+            position: absolute;
+            left: 10px;
+            white-space: nowrap;
+        }
     }
 </style>
 </head>
 <body>
 
-<div id="loginScreen" class="login">
-    <h2>Login</h2>
-    <input type="text" id="username" placeholder="Username"><br>
-    <input type="password" id="password" placeholder="Password"><br>
-    <button onclick="login()">Login</button>
+<h1>Trading Journal</h1>
+
+<div class="form-container">
+    <input type="text" id="symbol" placeholder="Symbol">
+    <select id="side">
+        <option value="buy">Buy</option>
+        <option value="sell">Sell</option>
+    </select>
+    <input type="number" id="leverage" placeholder="Leverage">
+    <input type="number" id="entry" placeholder="Entry Price">
+    <select id="targetType">
+        <option value="tp">TP</option>
+        <option value="sl">SL</option>
+    </select>
+    <input type="number" id="targetPrice" placeholder="Target Price">
+    <input type="number" id="invest" placeholder="Invest">
+    <button onclick="addTrade()">Add Trade</button>
 </div>
 
-<div id="app" class="container" style="display:none;">
-    <h1>Trading Journal</h1>
-    <div>
-        <input type="text" id="symbol" placeholder="Symbol">
-        <select id="side">
-            <option value="buy">Buy</option>
-            <option value="sell">Sell</option>
-        </select>
-        <input type="number" id="leverage" placeholder="Leverage" min="1" max="200">
-        <input type="number" id="entry" placeholder="Entry Price" step="0.0001">
-        <input type="number" id="tp" placeholder="TP" step="0.0001">
-        <input type="number" id="sl" placeholder="SL" step="0.0001">
-        <input type="number" id="invest" placeholder="Invest Amount $" step="0.01">
-        <button onclick="addTrade()">Add Trade</button>
-    </div>
-    
-    <table>
-        <thead>
-            <tr>
-                <th>Symbol</th>
-                <th>Side</th>
-                <th>Leverage</th>
-                <th>Entry</th>
-                <th>TP</th>
-                <th>SL</th>
-                <th>Invest Amount</th>
-                <th>Final Amount</th>
-                <th>Date</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody id="tradeTable"></tbody>
-    </table>
+<table>
+    <thead>
+        <tr>
+            <th>Symbol</th>
+            <th>Side</th>
+            <th>Leverage</th>
+            <th>Entry</th>
+            <th>Target Type</th>
+            <th>Target Price</th>
+            <th>Invest</th>
+            <th>Profit Amount</th>
+            <th>Final Amount</th>
+            <th>Date</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody id="tradeTable"></tbody>
+</table>
 
-    <div class="totals">
-        <div>Total Amount: <span id="totalAmount">$0.00</span></div>
-        <div>Total Profit: <span id="totalProfit" class="profit">$0.00</span></div>
-        <div>Total Loss: <span id="totalLoss" class="loss">$0.00</span></div>
-    </div>
-</div>
+<p id="totals">Total Amount: $0.00 | Total Profit: $0.00 | Total Loss: $0.00</p>
 
 <script>
-const USER_CREDENTIALS = { username: "admin", password: "1234" };
-
-function login() {
-    let u = document.getElementById("username").value;
-    let p = document.getElementById("password").value;
-    if (u === USER_CREDENTIALS.username && p === USER_CREDENTIALS.password) {
-        document.getElementById("loginScreen").style.display = "none";
-        document.getElementById("app").style.display = "block";
-        loadTrades();
-    } else {
-        alert("Invalid credentials!");
-    }
-}
-
 function formatUSD(value) {
     let num = parseFloat(value);
     if (isNaN(num)) num = 0;
     return "$" + num.toFixed(2);
 }
 
-
 function addTrade(editIndex = null) {
     let symbol = document.getElementById("symbol").value;
     let side = document.getElementById("side").value;
     let leverage = parseFloat(document.getElementById("leverage").value);
     let entry = parseFloat(document.getElementById("entry").value);
-    let tp = parseFloat(document.getElementById("tp").value);
-    let sl = parseFloat(document.getElementById("sl").value);
+    let targetType = document.getElementById("targetType").value;
+    let targetPrice = parseFloat(document.getElementById("targetPrice").value);
     let invest = parseFloat(document.getElementById("invest").value);
 
-    if (!symbol || !leverage || !entry || (!tp && !sl) || !invest) {
-        alert("Please fill all fields!");
+    if (!symbol || isNaN(leverage) || isNaN(entry) || isNaN(targetPrice) || isNaN(invest)) {
+        alert("Please fill all fields with valid numbers.");
         return;
     }
-    
-    let priceDiff;
-    if (tp) {
-        priceDiff = tp - entry;
-    } else {
-        priceDiff = sl - entry;
-    }
-    if (side === "sell") priceDiff = entry - (tp || sl);
 
-    let finalAmount = (priceDiff / entry) * leverage * invest;
+    let priceDiff = targetPrice - entry;
+    if (side === "sell") priceDiff = entry - targetPrice;
+
+    let profitAmount = (priceDiff / entry) * leverage * invest;
+    if (targetType === "sl") profitAmount = -Math.abs(profitAmount);
+
+    let finalAmount = profitAmount; // can add fees/adjustments here
 
     let trades = JSON.parse(localStorage.getItem("trades") || "[]");
 
     let trade = {
-        symbol, side, leverage, entry, tp, sl, invest,
+        symbol, side, leverage, entry,
+        targetType: targetType.toUpperCase(),
+        targetPrice, invest,
+        profitAmount: parseFloat(profitAmount.toFixed(2)),
         finalAmount: parseFloat(finalAmount.toFixed(2)),
         date: new Date().toLocaleDateString()
     };
@@ -186,47 +171,44 @@ function clearForm() {
     document.getElementById("side").value = "buy";
     document.getElementById("leverage").value = "";
     document.getElementById("entry").value = "";
-    document.getElementById("tp").value = "";
-    document.getElementById("sl").value = "";
+    document.getElementById("targetType").value = "tp";
+    document.getElementById("targetPrice").value = "";
     document.getElementById("invest").value = "";
 }
 
 function loadTrades() {
     let trades = JSON.parse(localStorage.getItem("trades") || "[]");
-    let today = new Date().toLocaleDateString();
     let table = document.getElementById("tradeTable");
     table.innerHTML = "";
 
     let totalAmount = 0, totalProfit = 0, totalLoss = 0;
 
     trades.forEach((t, index) => {
-        if (t.date === today) {
-            let row = `<tr>
-                <td>${t.symbol}</td>
-                <td>${t.side}</td>
-                <td>${t.leverage}x</td>
-                <td>${formatUSD(t.entry)}</td>
-                <td>${t.tp ? formatUSD(t.tp) : "-"}</td>
-                <td>${t.sl ? formatUSD(t.sl) : "-"}</td>
-                <td>${formatUSD(t.invest)}</td>
-                <td class="${t.finalAmount >= 0 ? 'profit' : 'loss'}">${formatUSD(t.finalAmount)}</td>
-                <td>${t.date}</td>
-                <td>
-                    <button onclick="editTrade(${index})">Edit</button>
-                    <button onclick="deleteTrade(${index})">Delete</button>
-                </td>
-            </tr>`;
-            table.innerHTML += row;
+        let row = `<tr>
+            <td>${t.symbol}</td>
+            <td>${t.side}</td>
+            <td>${t.leverage}x</td>
+            <td>${formatUSD(t.entry)}</td>
+            <td>${t.targetType}</td>
+            <td>${formatUSD(t.targetPrice)}</td>
+            <td>${formatUSD(t.invest)}</td>
+            <td class="${t.profitAmount >= 0 ? 'profit' : 'loss'}">${formatUSD(t.profitAmount)}</td>
+            <td class="${t.finalAmount >= 0 ? 'profit' : 'loss'}">${formatUSD(t.finalAmount)}</td>
+            <td>${t.date}</td>
+            <td>
+                <button onclick="editTrade(${index})">Edit</button>
+                <button onclick="deleteTrade(${index})">Delete</button>
+            </td>
+        </tr>`;
+        table.innerHTML += row;
 
-            totalAmount += t.finalAmount;
-            if (t.finalAmount >= 0) totalProfit += t.finalAmount;
-            else totalLoss += t.finalAmount;
-        }
+        totalAmount += t.finalAmount;
+        if (t.finalAmount >= 0) totalProfit += t.finalAmount;
+        else totalLoss += t.finalAmount;
     });
 
-    document.getElementById("totalAmount").textContent = formatUSD(totalAmount);
-    document.getElementById("totalProfit").textContent = formatUSD(totalProfit);
-    document.getElementById("totalLoss").textContent = formatUSD(totalLoss);
+    document.getElementById("totals").textContent =
+        `Total Amount: ${formatUSD(totalAmount)} | Total Profit: ${formatUSD(totalProfit)} | Total Loss: ${formatUSD(totalLoss)}`;
 }
 
 function deleteTrade(index) {
@@ -243,11 +225,13 @@ function editTrade(index) {
     document.getElementById("side").value = t.side;
     document.getElementById("leverage").value = t.leverage;
     document.getElementById("entry").value = t.entry;
-    document.getElementById("tp").value = t.tp || "";
-    document.getElementById("sl").value = t.sl || "";
+    document.getElementById("targetType").value = t.targetType.toLowerCase();
+    document.getElementById("targetPrice").value = t.targetPrice;
     document.getElementById("invest").value = t.invest;
     deleteTrade(index);
 }
+
+window.onload = loadTrades;
 </script>
 
 </body>

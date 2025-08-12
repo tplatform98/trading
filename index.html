@@ -1,598 +1,198 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html>
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Local Trader — Offline</title>
+<meta charset="UTF-8">
+<title>Local Trading Journal</title>
 <style>
-  :root{--bg:#0f1724;--card:#0b1220;--accent:#06b6d4;--muted:#94a3b8;--glass: rgba(255,255,255,0.03)}
-  body{font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background:linear-gradient(180deg,#071024,#081427); color:#e6eef6; margin:0; padding:24px; min-height:100vh}
-  .container{max-width:980px;margin:0 auto}
-  .card{background:var(--card); padding:18px; border-radius:12px; box-shadow: 0 6px 24px rgba(2,6,23,0.6); margin-bottom:18px}
-  h1{margin:0 0 12px 0;font-size:20px}
-  label{display:block;font-size:13px;color:var(--muted); margin-bottom:6px}
-  input, select, textarea, button{font-size:14px;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
-  .row{display:flex;gap:10px}
-  .row > *{flex:1}
-  .controls{display:flex;gap:8px;flex-wrap:wrap}
-  table{width:100%;border-collapse:collapse;margin-top:12px}
-  th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);text-align:left;font-size:13px}
-  th{color:var(--muted);font-weight:600}
-  .muted{color:var(--muted);font-size:13px}
-  .secondary{background:transparent;border:1px solid rgba(255,255,255,0.05);padding:6px 8px;border-radius:8px;}
-  .btn{background:var(--accent);border:none;color:#022; padding:8px 12px;border-radius:8px;cursor:pointer}
-  .danger{background:#ef4444;color:#fff}
-  .small{padding:6px 8px;font-size:13px}
-  .hidden{display:none}
-  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-  .right{display:flex;gap:8px;align-items:center}
-  footer{color:var(--muted);font-size:12px;text-align:center;margin-top:14px}
-  @media(max-width:720px){.row{flex-direction:column}}
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #121212;
+        color: #f0f0f0;
+        margin: 0;
+        padding: 0;
+    }
+    .container {
+        max-width: 900px;
+        margin: auto;
+        padding: 20px;
+    }
+    h1, h2 {
+        text-align: center;
+        color: #00ffae;
+    }
+    input, select, button {
+        padding: 8px;
+        margin: 5px;
+        border-radius: 5px;
+        border: none;
+    }
+    input, select {
+        width: 150px;
+    }
+    button {
+        background: #00ffae;
+        color: black;
+        cursor: pointer;
+        font-weight: bold;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+    }
+    th, td {
+        padding: 10px;
+        border: 1px solid #444;
+        text-align: center;
+    }
+    th {
+        background: #00ffae;
+        color: black;
+    }
+    .profit { color: #00ffae; }
+    .loss { color: #ff4d4d; }
+    .totals {
+        margin-top: 20px;
+        font-size: 1.2em;
+        text-align: right;
+    }
+    .login {
+        max-width: 300px;
+        margin: 100px auto;
+        background: #1e1e1e;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+    }
 </style>
 </head>
 <body>
-<div class="container">
-  <div class="card topbar">
+
+<div id="loginScreen" class="login">
+    <h2>Login</h2>
+    <input type="text" id="username" placeholder="Username"><br>
+    <input type="password" id="password" placeholder="Password"><br>
+    <button onclick="login()">Login</button>
+</div>
+
+<div id="app" class="container" style="display:none;">
+    <h1>Trading Journal</h1>
     <div>
-      <h1>Local Trader (offline)</h1>
-      <div class="muted">Local-only trading notes and logbook — stores in your browser</div>
+        <input type="text" id="symbol" placeholder="Symbol">
+        <select id="side">
+            <option value="buy">Buy</option>
+            <option value="sell">Sell</option>
+        </select>
+        <input type="number" id="leverage" placeholder="Leverage" min="1" max="200">
+        <input type="number" id="entry" placeholder="Entry Price" step="0.0001">
+        <input type="number" id="tp" placeholder="TP" step="0.0001">
+        <input type="number" id="sl" placeholder="SL" step="0.0001">
+        <button onclick="addTrade()">Add Trade</button>
     </div>
-    <div class="right">
-      <div id="who" class="muted">Not signed in</div>
-      <button id="btnLogout" class="secondary small hidden">Logout</button>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Symbol</th>
+                <th>Side</th>
+                <th>Leverage</th>
+                <th>Entry</th>
+                <th>TP</th>
+                <th>SL</th>
+                <th>Final Amount</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody id="tradeTable"></tbody>
+    </table>
+
+    <div class="totals">
+        <div>Total Amount: <span id="totalAmount">0</span></div>
+        <div>Total Profit: <span id="totalProfit" class="profit">0</span></div>
+        <div>Total Loss: <span id="totalLoss" class="loss">0</span></div>
     </div>
-  </div>
-
-  <div id="authCard" class="card">
-    <div id="authTabs" class="controls">
-      <button id="showLogin" class="secondary">Login</button>
-      <button id="showRegister" class="secondary">Register</button>
-    </div>
-
-    <div id="loginForm" class="hidden" style="margin-top:12px">
-      <label>Username</label>
-      <input id="loginUser" placeholder="username" />
-      <label>Password</label>
-      <input id="loginPass" type="password" placeholder="password" />
-      <div style="margin-top:10px" class="controls">
-        <button id="doLogin" class="btn">Login</button>
-        <button id="toRegister" class="secondary small">Go to Register</button>
-      </div>
-      <div id="loginMsg" class="muted" style="margin-top:8px"></div>
-    </div>
-
-    <div id="registerForm" class="hidden" style="margin-top:12px">
-      <label>Username</label>
-      <input id="regUser" placeholder="username" />
-      <label>Password</label>
-      <input id="regPass" type="password" placeholder="password" />
-      <label>Confirm Password</label>
-      <input id="regPass2" type="password" placeholder="confirm password" />
-      <div style="margin-top:10px" class="controls">
-        <button id="doRegister" class="btn">Register</button>
-        <button id="toLogin" class="secondary small">Go to Login</button>
-      </div>
-      <div id="registerMsg" class="muted" style="margin-top:8px"></div>
-    </div>
-  </div>
-
-  <div id="app" class="hidden">
-    <div class="card">
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
-        <div style="flex:1">
-          <label>Quick add trade</label>
-          <div class="row">
-            <input id="fSymbol" placeholder="Symbol e.g. BTCUSDT" />
-            <select id="fSide">
-              <option value="Buy">Buy</option>
-              <option value="Sell">Sell</option>
-            </select>
-            <input id="fQty" placeholder="Qty" type="number" step="any" />
-            <input id="fPrice" placeholder="Price" type="number" step="any" />
-            <input id="fDate" type="date" />
-          </div>
-          <div style="margin-top:8px">
-            <textarea id="fNotes" placeholder="Notes (optional)" rows="2" style="width:100%"></textarea>
-          </div>
-          <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end">
-            <button id="addTrade" class="btn">Add Trade</button>
-            <button id="exportCSV" class="secondary small">Export CSV</button>
-            <input id="importFile" type="file" accept=".csv" style="display:none" />
-            <button id="importCSV" class="secondary small">Import CSV</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <label>Filter</label>
-          <div style="display:flex;gap:8px">
-            <input id="filterSymbol" placeholder="symbol filter" />
-            <select id="filterSide">
-              <option value="">All</option>
-              <option value="Buy">Buy</option>
-              <option value="Sell">Sell</option>
-            </select>
-            <button id="applyFilter" class="secondary small">Apply</button>
-            <button id="clearFilter" class="secondary small">Clear</button>
-          </div>
-        </div>
-        <div>
-          <button id="btnChangePass" class="secondary small">Change Password</button>
-        </div>
-      </div>
-
-      <div id="tradesList" style="margin-top:12px">
-        <table>
-          <thead><tr><th>Symbol</th><th>Side</th><th>Qty</th><th>Price</th><th>Date</th><th>Notes</th><th>Action</th></tr></thead>
-          <tbody id="tbodyTrades"></tbody>
-        </table>
-        <div id="noTrades" class="muted" style="padding:12px">No trades yet.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Change password modal (simple) -->
-  <div id="modalChange" class="card hidden" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:420px;z-index:99">
-    <h3>Change password</h3>
-    <label>Current password</label><input id="curPass" type="password" />
-    <label>New password</label><input id="newPass" type="password" />
-    <label>Confirm new</label><input id="newPass2" type="password" />
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
-      <button id="closeModal" class="secondary small">Cancel</button>
-      <button id="doChange" class="btn">Change</button>
-    </div>
-    <div id="changeMsg" class="muted" style="margin-top:8px"></div>
-  </div>
-
-  <footer class="muted">Local Trader — data stored in your browser. Save this file to keep using.</footer>
 </div>
 
 <script>
-/*
-  Local Trader
-  - IndexedDB stores: users (username, salt, key), trades (id, owner, symbol, side, qty, price, date, notes, created)
-  - Passwords hashed with PBKDF2 (subtle crypto) with random salt.
-  - All local; no network.
-*/
-(() => {
-  const DB_NAME = 'local_trader_db_v1'
-  const DB_VERSION = 1
-  let db = null
-  let currentUser = null
+const USER_CREDENTIALS = { username: "admin", password: "1234" };
 
-  // ---------- IndexedDB helpers ----------
-  function openDB() {
-    return new Promise((res, rej) => {
-      const r = indexedDB.open(DB_NAME, DB_VERSION)
-      r.onerror = e => rej(e)
-      r.onupgradeneeded = ev => {
-        const idb = ev.target.result
-        if (!idb.objectStoreNames.contains('users')) {
-          const u = idb.createObjectStore('users', { keyPath: 'username' })
-          // store: { username, salt (base64), key (base64) }
-        }
-        if (!idb.objectStoreNames.contains('trades')) {
-          const t = idb.createObjectStore('trades', { keyPath: 'id' })
-          t.createIndex('owner', 'owner', { unique: false })
-          t.createIndex('symbol', 'symbol', { unique: false })
-          t.createIndex('date', 'date', { unique: false })
-        }
-      }
-      r.onsuccess = e => { db = e.target.result; res(db) }
-    })
-  }
-
-  function idbPut(storeName, value) {
-    return new Promise((res, rej) => {
-      const tx = db.transaction(storeName, 'readwrite')
-      tx.oncomplete = () => res(true)
-      tx.onerror = ev => rej(ev)
-      tx.objectStore(storeName).put(value)
-    })
-  }
-  function idbGet(storeName, key) {
-    return new Promise((res, rej) => {
-      const tx = db.transaction(storeName, 'readonly')
-      const req = tx.objectStore(storeName).get(key)
-      req.onsuccess = () => res(req.result)
-      req.onerror = e => rej(e)
-    })
-  }
-  function idbDelete(storeName, key) {
-    return new Promise((res, rej) => {
-      const tx = db.transaction(storeName, 'readwrite')
-      const req = tx.objectStore(storeName).delete(key)
-      req.onsuccess = () => res(true)
-      req.onerror = e => rej(e)
-    })
-  }
-  function idbGetAllByIndex(storeName, indexName, value) {
-    return new Promise((res, rej) => {
-      const tx = db.transaction(storeName, 'readonly')
-      const store = tx.objectStore(storeName)
-      if (!indexName) {
-        const req = store.getAll()
-        req.onsuccess = () => res(req.result || [])
-        req.onerror = e => rej(e)
-        return
-      }
-      const index = store.index(indexName)
-      const req = index.getAll(value)
-      req.onsuccess = () => res(req.result || [])
-      req.onerror = e => rej(e)
-    })
-  }
-  function idbGetAll(storeName) {
-    return idbGetAllByIndex(storeName, null, null)
-  }
-
-  // ---------- Crypto helpers ----------
-  function randomBytes(len=16) {
-    const b = crypto.getRandomValues(new Uint8Array(len))
-    return b
-  }
-  function toBase64(buf) {
-    return btoa(String.fromCharCode(...new Uint8Array(buf)))
-  }
-  function fromBase64(b64) {
-    const binary = atob(b64)
-    const arr = new Uint8Array(binary.length)
-    for (let i=0;i<binary.length;i++) arr[i] = binary.charCodeAt(i)
-    return arr.buffer
-  }
-
-  async function deriveKey(password, salt, iterations=200000, len=32) {
-    // password: string, salt: Uint8Array
-    const enc = new TextEncoder()
-    const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), {name:'PBKDF2'}, false, ['deriveBits'])
-    const derivedBits = await crypto.subtle.deriveBits({
-      name: 'PBKDF2',
-      hash: 'SHA-256',
-      salt: salt,
-      iterations
-    }, keyMaterial, len*8)
-    return new Uint8Array(derivedBits)
-  }
-
-  // ---------- UI references ----------
-  const el = id => document.getElementById(id)
-  const loginForm = el('loginForm'), registerForm = el('registerForm'), authCard = el('authCard')
-  const showLogin = el('showLogin'), showRegister = el('showRegister')
-  const toRegister = el('toRegister'), toLogin = el('toLogin')
-  const doLogin = el('doLogin'), doRegister = el('doRegister'), loginMsg = el('loginMsg'), registerMsg = el('registerMsg')
-  const who = el('who'), btnLogout = el('btnLogout'), app = el('app')
-  const addTradeBtn = el('addTrade'), tbodyTrades = el('tbodyTrades'), noTrades = el('noTrades')
-  const fSymbol = el('fSymbol'), fSide = el('fSide'), fQty = el('fQty'), fPrice = el('fPrice'), fDate = el('fDate'), fNotes = el('fNotes')
-  const exportCSV = el('exportCSV'), importCSV = el('importCSV'), importFile = el('importFile')
-  const filterSymbol = el('filterSymbol'), filterSide = el('filterSide'), applyFilter = el('applyFilter'), clearFilter = el('clearFilter')
-  const btnChangePass = el('btnChangePass'), modalChange = el('modalChange'), closeModal = el('closeModal'), doChange = el('doChange')
-  const curPass = el('curPass'), newPass = el('newPass'), newPass2 = el('newPass2'), changeMsg = el('changeMsg')
-
-  // ---------- UI init ----------
-  showLogin.addEventListener('click', ()=>{ showLoginForm() })
-  showRegister.addEventListener('click', ()=>{ showRegisterForm() })
-  toRegister.addEventListener('click', ()=>{ showRegisterForm() })
-  toLogin.addEventListener('click', ()=>{ showLoginForm() })
-
-  function showLoginForm(){ loginForm.classList.remove('hidden'); registerForm.classList.add('hidden'); loginMsg.textContent=''; registerMsg.textContent=''; }
-  function showRegisterForm(){ registerForm.classList.remove('hidden'); loginForm.classList.add('hidden'); loginMsg.textContent=''; registerMsg.textContent=''; }
-
-  // ---------- Auth actions ----------
-  async function registerUser(username, password) {
-    username = username.trim().toLowerCase()
-    if (!username || !password) throw new Error('Username and password required')
-    const existing = await idbGet('users', username)
-    if (existing) throw new Error('User already exists')
-    const salt = randomBytes(16)
-    const derived = await deriveKey(password, salt)
-    const rec = { username, salt: toBase64(salt.buffer), key: toBase64(derived.buffer), created: new Date().toISOString() }
-    await idbPut('users', rec)
-    return true
-  }
-
-  async function verifyUser(username, password) {
-    username = username.trim().toLowerCase()
-    const rec = await idbGet('users', username)
-    if (!rec) return false
-    const salt = new Uint8Array(fromBase64(rec.salt))
-    const derived = await deriveKey(password, salt)
-    const derivedB64 = toBase64(derived.buffer)
-    return derivedB64 === rec.key
-  }
-
-  async function changePassword(username, currentPassword, newPassword) {
-    const ok = await verifyUser(username, currentPassword)
-    if (!ok) throw new Error('Current password incorrect')
-    const salt = randomBytes(16)
-    const derived = await deriveKey(newPassword, salt)
-    const rec = await idbGet('users', username)
-    rec.salt = toBase64(salt.buffer)
-    rec.key = toBase64(derived.buffer)
-    await idbPut('users', rec)
-    return true
-  }
-
-  doRegister.addEventListener('click', async () => {
-    registerMsg.textContent = 'Working...'
-    try {
-      const u = el('regUser').value.trim()
-      const p = el('regPass').value
-      const p2 = el('regPass2').value
-      if (!u || !p) { registerMsg.textContent = 'Please fill username and password'; return }
-      if (p !== p2) { registerMsg.textContent = 'Passwords do not match'; return }
-      await registerUser(u, p)
-      registerMsg.textContent = 'Registered. You may login now.'
-      el('regUser').value = el('regPass').value = el('regPass2').value = ''
-      showLoginForm()
-    } catch (err) {
-      registerMsg.textContent = 'Error: ' + (err.message||err)
+function login() {
+    let u = document.getElementById("username").value;
+    let p = document.getElementById("password").value;
+    if (u === USER_CREDENTIALS.username && p === USER_CREDENTIALS.password) {
+        document.getElementById("loginScreen").style.display = "none";
+        document.getElementById("app").style.display = "block";
+        loadTrades();
+    } else {
+        alert("Invalid credentials!");
     }
-  })
+}
 
-  doLogin.addEventListener('click', async () => {
-    loginMsg.textContent = 'Checking...'
-    try {
-      const u = el('loginUser').value.trim()
-      const p = el('loginPass').value
-      if (!u || !p) { loginMsg.textContent = 'Fill username/password'; return }
-      const ok = await verifyUser(u, p)
-      if (!ok) { loginMsg.textContent = 'Invalid credentials'; return }
-      // success
-      currentUser = u.toLowerCase()
-      afterLogin()
-    } catch (err) {
-      loginMsg.textContent = 'Error: ' + (err.message||err)
+function addTrade() {
+    let symbol = document.getElementById("symbol").value;
+    let side = document.getElementById("side").value;
+    let leverage = parseFloat(document.getElementById("leverage").value);
+    let entry = parseFloat(document.getElementById("entry").value);
+    let tp = parseFloat(document.getElementById("tp").value);
+    let sl = parseFloat(document.getElementById("sl").value);
+
+    if (!symbol || !leverage || !entry || (!tp && !sl)) {
+        alert("Please fill all fields!");
+        return;
     }
-  })
 
-  btnLogout.addEventListener('click', () => {
-    currentUser = null
-    who.textContent = 'Not signed in'
-    btnLogout.classList.add('hidden')
-    app.classList.add('hidden')
-    authCard.classList.remove('hidden')
-    showLoginForm()
-  })
-
-  function afterLogin() {
-    who.textContent = 'Signed in: ' + currentUser
-    btnLogout.classList.remove('hidden')
-    app.classList.remove('hidden')
-    authCard.classList.add('hidden')
-    clearTradeForm()
-    loadTrades()
-  }
-
-  // ---------- Trades ----------
-  function uid() { return 't_' + Math.random().toString(36).slice(2,11) }
-
-  addTradeBtn.addEventListener('click', async () => {
-    const s = fSymbol.value.trim().toUpperCase()
-    const side = fSide.value
-    const qty = parseFloat(fQty.value) || 0
-    const price = parseFloat(fPrice.value) || 0
-    const date = fDate.value || new Date().toISOString().slice(0,10)
-    const notes = fNotes.value.trim()
-    if (!s) { alert('Enter a symbol'); return }
-    const rec = {
-      id: uid(),
-      owner: currentUser,
-      symbol: s,
-      side,
-      qty,
-      price,
-      date,
-      notes,
-      created: new Date().toISOString()
+    let finalAmount;
+    if (tp) {
+        finalAmount = ((tp - entry) / entry) * leverage * 100; // percentage profit/loss
+    } else {
+        finalAmount = ((sl - entry) / entry) * leverage * 100;
     }
-    try {
-      await idbPut('trades', rec)
-      clearTradeForm()
-      loadTrades()
-    } catch (err) {
-      alert('Error saving trade: ' + err)
-    }
-  })
+    if (side === "sell") finalAmount *= -1;
 
-  function clearTradeForm(){
-    fSymbol.value=''; fSide.value='Buy'; fQty.value=''; fPrice.value=''; fDate.value=''; fNotes.value=''
-  }
+    let trade = {
+        symbol, side, leverage, entry, tp, sl,
+        finalAmount: parseFloat(finalAmount.toFixed(2)),
+        date: new Date().toLocaleDateString()
+    };
 
-  async function loadTrades(filter={}) {
-    const all = await idbGetAllByIndex('trades', 'owner', currentUser)
-    let list = all || []
-    // apply filters
-    const fs = filterSymbol.value.trim().toUpperCase()
-    const side = filterSide.value
-    if (fs) list = list.filter(r => r.symbol.includes(fs))
-    if (side) list = list.filter(r => r.side === side)
-    renderTrades(list.sort((a,b)=> (b.date||'').localeCompare(a.date||'') || (b.created||'').localeCompare(a.created||'')))
-  }
+    let trades = JSON.parse(localStorage.getItem("trades") || "[]");
+    trades.push(trade);
+    localStorage.setItem("trades", JSON.stringify(trades));
 
-  function renderTrades(trades) {
-    tbodyTrades.innerHTML = ''
-    if (!trades || trades.length===0) { noTrades.style.display='block'; return }
-    noTrades.style.display='none'
-    for (const t of trades) {
-      const tr = document.createElement('tr')
-      tr.innerHTML = `
-        <td>${escapeHtml(t.symbol)}</td>
-        <td>${t.side}</td>
-        <td>${t.qty}</td>
-        <td>${t.price}</td>
-        <td>${t.date}</td>
-        <td>${escapeHtml(t.notes||'')}</td>
-        <td>
-          <button class="secondary small" data-id="${t.id}" data-action="edit">Edit</button>
-          <button class="danger small" data-id="${t.id}" data-action="del">Delete</button>
-        </td>
-      `
-      tbodyTrades.appendChild(tr)
-    }
-  }
+    loadTrades();
+}
 
-  // event delegation for edit/delete
-  tbodyTrades.addEventListener('click', async (e) => {
-    const btn = e.target.closest('button')
-    if (!btn) return
-    const id = btn.dataset.id
-    const action = btn.dataset.action
-    if (action === 'del') {
-      if (!confirm('Delete this trade?')) return
-      await idbDelete('trades', id)
-      loadTrades()
-    } else if (action === 'edit') {
-      const rec = await idbGet('trades', id)
-      if (!rec) return alert('Record not found')
-      // reuse quick form for simple edit: fill values and when add is clicked, create new id? better to open prompt
-      const newSymbol = prompt('Symbol', rec.symbol) || rec.symbol
-      const newSide = prompt('Side (Buy/Sell)', rec.side) || rec.side
-      const newQty = parseFloat(prompt('Qty', rec.qty)) || rec.qty
-      const newPrice = parseFloat(prompt('Price', rec.price)) || rec.price
-      const newDate = prompt('Date (YYYY-MM-DD)', rec.date) || rec.date
-      const newNotes = prompt('Notes', rec.notes||'') || rec.notes
-      rec.symbol = newSymbol.toUpperCase()
-      rec.side = newSide
-      rec.qty = newQty
-      rec.price = newPrice
-      rec.date = newDate
-      rec.notes = newNotes
-      await idbPut('trades', rec)
-      loadTrades()
-    }
-  })
+function loadTrades() {
+    let trades = JSON.parse(localStorage.getItem("trades") || "[]");
+    let today = new Date().toLocaleDateString();
+    let table = document.getElementById("tradeTable");
+    table.innerHTML = "";
 
-  // ---------- CSV export / import ----------
-  function tradesToCSV(rows) {
-    const headers = ['id','symbol','side','qty','price','date','notes','created']
-    const csv = [headers.join(',')]
-    for (const r of rows) {
-      const line = headers.map(h => '"' + String((r[h]===undefined? '': r[h])).replace(/"/g,'""') + '"').join(',')
-      csv.push(line)
-    }
-    return csv.join('\n')
-  }
+    let totalAmount = 0, totalProfit = 0, totalLoss = 0;
 
-  exportCSV.addEventListener('click', async () => {
-    const rows = await idbGetAllByIndex('trades','owner', currentUser)
-    const csv = tradesToCSV(rows)
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = (currentUser||'trader') + '_trades_' + new Date().toISOString().slice(0,19).replace(/[:T]/g,'-') + '.csv'
-    a.click()
-    URL.revokeObjectURL(a.href)
-  })
+    trades.filter(t => t.date === today).forEach(t => {
+        let row = `<tr>
+            <td>${t.symbol}</td>
+            <td>${t.side}</td>
+            <td>${t.leverage}x</td>
+            <td>${t.entry}</td>
+            <td>${t.tp || "-"}</td>
+            <td>${t.sl || "-"}</td>
+            <td class="${t.finalAmount >= 0 ? 'profit' : 'loss'}">${t.finalAmount}%</td>
+            <td>${t.date}</td>
+        </tr>`;
+        table.innerHTML += row;
 
-  importCSV.addEventListener('click', ()=> importFile.click())
-  importFile.addEventListener('change', async (ev) => {
-    const f = ev.target.files[0]
-    if (!f) return
-    const txt = await f.text()
-    try {
-      const parsed = parseCSV(txt)
-      for (const r of parsed) {
-        // minimal mapping: symbol, side, qty, price, date, notes
-        const rec = {
-          id: uid(),
-          owner: currentUser,
-          symbol: (r.symbol||'').toUpperCase(),
-          side: r.side||'Buy',
-          qty: parseFloat(r.qty)||0,
-          price: parseFloat(r.price)||0,
-          date: r.date || (new Date().toISOString().slice(0,10)),
-          notes: r.notes || '',
-          created: new Date().toISOString()
-        }
-        await idbPut('trades', rec)
-      }
-      alert('Imported ' + parsed.length + ' rows')
-      importFile.value = ''
-      loadTrades()
-    } catch (err) {
-      alert('Import failed: ' + err)
-    }
-  })
+        totalAmount += t.finalAmount;
+        if (t.finalAmount >= 0) totalProfit += t.finalAmount;
+        else totalLoss += t.finalAmount;
+    });
 
-  function parseCSV(text) {
-    // simple CSV parser assuming first row headers
-    const lines = text.split(/\r?\n/).filter(l=>l.trim()!=='')
-    if (lines.length === 0) return []
-    const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g,'').trim())
-    const out = []
-    for (let i=1;i<lines.length;i++) {
-      const parts = splitCsvLine(lines[i])
-      const obj = {}
-      for (let j=0;j<headers.length;j++){
-        obj[headers[j].trim()] = parts[j] ? parts[j].replace(/^"|"$/g,'') : ''
-      }
-      out.push(obj)
-    }
-    return out
-  }
-  function splitCsvLine(line) {
-    const res = []
-    let cur = '', inQuotes=false
-    for (let i=0;i<line.length;i++){
-      const ch = line[i]
-      if (ch === '"' ) {
-        inQuotes = !inQuotes
-        cur += ch
-      } else if (ch === ',' && !inQuotes) {
-        res.push(cur)
-        cur = ''
-      } else cur += ch
-    }
-    res.push(cur)
-    return res
-  }
-
-  // ---------- Filters ----------
-  applyFilter.addEventListener('click', ()=> loadTrades())
-  clearFilter.addEventListener('click', ()=> { filterSymbol.value=''; filterSide.value=''; loadTrades() })
-
-  // ---------- Change password ----------
-  btnChangePass.addEventListener('click', ()=> { modalChange.classList.remove('hidden'); changeMsg.textContent=''; curPass.value=newPass.value=newPass2.value='' })
-  closeModal.addEventListener('click', ()=> modalChange.classList.add('hidden'))
-  doChange.addEventListener('click', async () => {
-    changeMsg.textContent = 'Working...'
-    try {
-      const a = curPass.value, b = newPass.value, c = newPass2.value
-      if (!a || !b) { changeMsg.textContent = 'Fill both fields'; return }
-      if (b !== c) { changeMsg.textContent = 'New passwords do not match'; return }
-      await changePassword(currentUser, a, b)
-      changeMsg.textContent = 'Password changed'
-      setTimeout(()=> modalChange.classList.add('hidden'), 800)
-    } catch (err) {
-      changeMsg.textContent = 'Error: ' + (err.message||err)
-    }
-  })
-
-  // ---------- Utilities ----------
-  function escapeHtml(s = '') {
-    return String(s).replace(/[&<>"']/g, function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]})
-  }
-
-  // ---------- Boot ----------
-  (async function boot(){
-    try {
-      await openDB()
-      // initial UI state
-      showLoginForm()
-      // if one user exists, optionally auto-fill username? no auto login for security
-    } catch (err) {
-      alert('IndexedDB open failed: ' + err)
-    }
-  })()
-
-  // small helper: if user presses Enter on password field, login
-  el('loginPass').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') doLogin.click() })
-  el('regPass2').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') doRegister.click() })
-
-})();
+    document.getElementById("totalAmount").textContent = totalAmount.toFixed(2) + "%";
+    document.getElementById("totalProfit").textContent = totalProfit.toFixed(2) + "%";
+    document.getElementById("totalLoss").textContent = totalLoss.toFixed(2) + "%";
+}
 </script>
+
 </body>
 </html>

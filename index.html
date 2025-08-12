@@ -12,7 +12,7 @@
         padding: 0;
     }
     .container {
-        max-width: 900px;
+        max-width: 1000px;
         margin: auto;
         padding: 20px;
     }
@@ -87,6 +87,7 @@
         <input type="number" id="entry" placeholder="Entry Price" step="0.0001">
         <input type="number" id="tp" placeholder="TP" step="0.0001">
         <input type="number" id="sl" placeholder="SL" step="0.0001">
+        <input type="number" id="invest" placeholder="Invest Amount $" step="0.01">
         <button onclick="addTrade()">Add Trade</button>
     </div>
     
@@ -99,17 +100,19 @@
                 <th>Entry</th>
                 <th>TP</th>
                 <th>SL</th>
+                <th>Invest Amount</th>
                 <th>Final Amount</th>
                 <th>Date</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody id="tradeTable"></tbody>
     </table>
 
     <div class="totals">
-        <div>Total Amount: <span id="totalAmount">0</span></div>
-        <div>Total Profit: <span id="totalProfit" class="profit">0</span></div>
-        <div>Total Loss: <span id="totalLoss" class="loss">0</span></div>
+        <div>Total Amount: <span id="totalAmount">$0.00</span></div>
+        <div>Total Profit: <span id="totalProfit" class="profit">$0.00</span></div>
+        <div>Total Loss: <span id="totalLoss" class="loss">$0.00</span></div>
     </div>
 </div>
 
@@ -128,38 +131,64 @@ function login() {
     }
 }
 
-function addTrade() {
+function formatUSD(value) {
+    let num = parseFloat(value);
+    if (isNaN(num)) num = 0;
+    return "$" + num.toFixed(2);
+}
+
+
+function addTrade(editIndex = null) {
     let symbol = document.getElementById("symbol").value;
     let side = document.getElementById("side").value;
     let leverage = parseFloat(document.getElementById("leverage").value);
     let entry = parseFloat(document.getElementById("entry").value);
     let tp = parseFloat(document.getElementById("tp").value);
     let sl = parseFloat(document.getElementById("sl").value);
+    let invest = parseFloat(document.getElementById("invest").value);
 
-    if (!symbol || !leverage || !entry || (!tp && !sl)) {
+    if (!symbol || !leverage || !entry || (!tp && !sl) || !invest) {
         alert("Please fill all fields!");
         return;
     }
-
-    let finalAmount;
+    
+    let priceDiff;
     if (tp) {
-        finalAmount = ((tp - entry) / entry) * leverage * 100; // percentage profit/loss
+        priceDiff = tp - entry;
     } else {
-        finalAmount = ((sl - entry) / entry) * leverage * 100;
+        priceDiff = sl - entry;
     }
-    if (side === "sell") finalAmount *= -1;
+    if (side === "sell") priceDiff = entry - (tp || sl);
+
+    let finalAmount = (priceDiff / entry) * leverage * invest;
+
+    let trades = JSON.parse(localStorage.getItem("trades") || "[]");
 
     let trade = {
-        symbol, side, leverage, entry, tp, sl,
+        symbol, side, leverage, entry, tp, sl, invest,
         finalAmount: parseFloat(finalAmount.toFixed(2)),
         date: new Date().toLocaleDateString()
     };
 
-    let trades = JSON.parse(localStorage.getItem("trades") || "[]");
-    trades.push(trade);
-    localStorage.setItem("trades", JSON.stringify(trades));
+    if (editIndex !== null) {
+        trades[editIndex] = trade;
+    } else {
+        trades.push(trade);
+    }
 
+    localStorage.setItem("trades", JSON.stringify(trades));
     loadTrades();
+    clearForm();
+}
+
+function clearForm() {
+    document.getElementById("symbol").value = "";
+    document.getElementById("side").value = "buy";
+    document.getElementById("leverage").value = "";
+    document.getElementById("entry").value = "";
+    document.getElementById("tp").value = "";
+    document.getElementById("sl").value = "";
+    document.getElementById("invest").value = "";
 }
 
 function loadTrades() {
@@ -170,27 +199,54 @@ function loadTrades() {
 
     let totalAmount = 0, totalProfit = 0, totalLoss = 0;
 
-    trades.filter(t => t.date === today).forEach(t => {
-        let row = `<tr>
-            <td>${t.symbol}</td>
-            <td>${t.side}</td>
-            <td>${t.leverage}x</td>
-            <td>${t.entry}</td>
-            <td>${t.tp || "-"}</td>
-            <td>${t.sl || "-"}</td>
-            <td class="${t.finalAmount >= 0 ? 'profit' : 'loss'}">${t.finalAmount}%</td>
-            <td>${t.date}</td>
-        </tr>`;
-        table.innerHTML += row;
+    trades.forEach((t, index) => {
+        if (t.date === today) {
+            let row = `<tr>
+                <td>${t.symbol}</td>
+                <td>${t.side}</td>
+                <td>${t.leverage}x</td>
+                <td>${formatUSD(t.entry)}</td>
+                <td>${t.tp ? formatUSD(t.tp) : "-"}</td>
+                <td>${t.sl ? formatUSD(t.sl) : "-"}</td>
+                <td>${formatUSD(t.invest)}</td>
+                <td class="${t.finalAmount >= 0 ? 'profit' : 'loss'}">${formatUSD(t.finalAmount)}</td>
+                <td>${t.date}</td>
+                <td>
+                    <button onclick="editTrade(${index})">Edit</button>
+                    <button onclick="deleteTrade(${index})">Delete</button>
+                </td>
+            </tr>`;
+            table.innerHTML += row;
 
-        totalAmount += t.finalAmount;
-        if (t.finalAmount >= 0) totalProfit += t.finalAmount;
-        else totalLoss += t.finalAmount;
+            totalAmount += t.finalAmount;
+            if (t.finalAmount >= 0) totalProfit += t.finalAmount;
+            else totalLoss += t.finalAmount;
+        }
     });
 
-    document.getElementById("totalAmount").textContent = totalAmount.toFixed(2) + "%";
-    document.getElementById("totalProfit").textContent = totalProfit.toFixed(2) + "%";
-    document.getElementById("totalLoss").textContent = totalLoss.toFixed(2) + "%";
+    document.getElementById("totalAmount").textContent = formatUSD(totalAmount);
+    document.getElementById("totalProfit").textContent = formatUSD(totalProfit);
+    document.getElementById("totalLoss").textContent = formatUSD(totalLoss);
+}
+
+function deleteTrade(index) {
+    let trades = JSON.parse(localStorage.getItem("trades") || "[]");
+    trades.splice(index, 1);
+    localStorage.setItem("trades", JSON.stringify(trades));
+    loadTrades();
+}
+
+function editTrade(index) {
+    let trades = JSON.parse(localStorage.getItem("trades") || "[]");
+    let t = trades[index];
+    document.getElementById("symbol").value = t.symbol;
+    document.getElementById("side").value = t.side;
+    document.getElementById("leverage").value = t.leverage;
+    document.getElementById("entry").value = t.entry;
+    document.getElementById("tp").value = t.tp || "";
+    document.getElementById("sl").value = t.sl || "";
+    document.getElementById("invest").value = t.invest;
+    deleteTrade(index);
 }
 </script>
 

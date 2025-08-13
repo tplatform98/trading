@@ -1,5 +1,5 @@
-# trading
-Trading Journal – Local HTML/JS Web App
+# Trading Journal – Local HTML/JS Web App
+
 Description:
 A simple, dark-themed trading journal built with HTML, CSS, and JavaScript.
 Features include:
